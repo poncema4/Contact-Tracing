@@ -135,9 +135,10 @@ class UnifiedClient:
             if not host:
                 host = self.get_server_ip()
             
-            # Handle special cases
-            if host.lower() in ['localhost', '127.0.0.1', '']:
-                host = 'localhost'
+            # Don't convert remote IPs to localhost
+            if host.lower() in ['localhost', '127.0.0.1']:
+                # Ask for remote IP if localhost is entered
+                host = self.get_remote_ip()
             
             self.server_ip = host
             
@@ -151,8 +152,9 @@ class UnifiedClient:
             self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.client_socket.settimeout(5)  # 5 second timeout
             
-            # Try to connect
+            print(f"Attempting to connect to {host}:{port}")  # Debug message
             self.client_socket.connect((host, port))
+            print("Connection successful")  # Debug message
             self.client_socket.settimeout(None)  # Reset timeout
             
             # Get player name if not already set
@@ -172,10 +174,10 @@ class UnifiedClient:
             return True
             
         except socket.timeout:
-            self.show_error(f"Connection to {host}:{port} timed out. Please check the server address.")
+            self.show_error(f"Connection to {host}:{port} timed out. Please check the server address and ensure the server is running.")
             return False
         except ConnectionRefusedError:
-            self.show_error(f"Could not connect to server at {host}:{port}. Make sure server is running.")
+            self.show_error(f"Could not connect to server at {host}:{port}. Make sure server is running and the IP address is correct.")
             return False
         except Exception as e:
             self.show_error(f"Connection error: {str(e)}")
@@ -222,6 +224,42 @@ class UnifiedClient:
         # Wait for input
         dialog.wait_window()
         return ip_address[0]
+
+    def get_remote_ip(self):
+        """Prompt user for remote server IP address"""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Remote Server Connection")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        ip_address = [None]  # Default value
+        
+        # Center dialog
+        dialog.geometry("300x180")
+        dialog.resizable(False, False)
+        
+        ttk.Label(dialog, text="Enter the remote server's IP address:").pack(pady=10)
+        ttk.Label(dialog, text="(Ask the server host for their IP address)").pack()
+        
+        ip_var = tk.StringVar()
+        entry = ttk.Entry(dialog, textvariable=ip_var)
+        entry.pack(padx=20, pady=10)
+        entry.focus()
+        
+        def submit():
+            if ip_var.get().strip():
+                ip_address[0] = ip_var.get().strip()
+            dialog.destroy()
+        
+        def on_enter(event):
+            submit()
+        
+        entry.bind('<Return>', on_enter)
+        ttk.Button(dialog, text="Connect", command=submit).pack(pady=10)
+        
+        # Wait for input
+        dialog.wait_window()
+        return ip_address[0] or 'localhost'
 
     def get_player_name(self):
         dialog = tk.Toplevel(self.root)
